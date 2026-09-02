@@ -15,7 +15,8 @@ unitSprites.beginner=new Image();
 unitSprites.partTime.src='assets/characters-v1/part-time-pharmacist-walk-v1.png';
 unitSprites.beginner.src='assets/characters-v1/beginner-pharmacist-walk-v1.png';
 
-Object.assign(UNIT_TYPES.atc,{cost:55,hp:330,interval:8});
+Object.assign(UNIT_TYPES.atc,{cost:55,hp:330,interval:10});
+UNIT_TYPES['waste-medicine']={name:'폐의약품',cost:75,kind:'mine',hp:1,damage:230,blastRadius:145,color:'#ffd166'};
 Object.assign(UNIT_TYPES['atc-strike'],{cost:185,hp:280,damage:30,rate:1.5});
 Object.assign(UNIT_TYPES['pharm-part'],{cost:70,hp:220,damage:16,rate:1.25,spriteKey:'partTime'});
 Object.assign(UNIT_TYPES['pharm-new'],{cost:125,hp:270,damage:24,rate:1,spriteKey:'beginner'});
@@ -23,6 +24,33 @@ Object.assign(UNIT_TYPES['pharm-vet'],{cost:220,hp:340,damage:46,rate:.85});
 Object.assign(UNIT_TYPES['staff-part'],{cost:55,hp:500});
 Object.assign(UNIT_TYPES['staff-new'],{cost:105,hp:900});
 Object.assign(UNIT_TYPES['staff-vet'],{cost:160,hp:1500});
+
+const originalUnitUpdate=Unit.prototype.update;
+Unit.prototype.update=function(dt,game){
+  if(this.kind==='producer'&&!this.productionStarted){this.productionStarted=true;this.timer=this.interval;}
+  if(this.kind!=='mine')return originalUnitUpdate.call(this,dt,game);
+  const contact=game.enemies.find(enemy=>enemy.row===this.row&&enemy.x-this.x<58&&enemy.x-this.x>-48);
+  if(!contact)return;
+  game.enemies.forEach(enemy=>{
+    if(enemy.row===this.row&&Math.abs(enemy.x-this.x)<=this.blastRadius){enemy.hp-=this.damage;enemy.hit=.22;}
+  });
+  game.blasts.push({x:this.x,y:this.y,life:.42,maxLife:.42});
+  this.hp=0;
+  audio.sfx('blast');
+  ui.message.textContent='폐의약품 폭발! 같은 라인의 진상에게 230 피해';
+};
+
+const originalUnitDraw=Unit.prototype.draw;
+Unit.prototype.draw=function(){
+  if(this.kind!=='mine')return originalUnitDraw.call(this);
+  ctx.save();ctx.translate(this.x,this.y);
+  ctx.fillStyle='#3d2d1fbb';ctx.beginPath();ctx.ellipse(0,28,39,12,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#6e6652';ctx.strokeStyle='#241f19';ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(-31,-12,62,41,10);ctx.fill();ctx.stroke();
+  ctx.strokeStyle='#ffd166';ctx.setLineDash([6,4]);ctx.strokeRect(-25,-6,50,29);ctx.setLineDash([]);
+  ctx.fillStyle='#fff4c2';ctx.font='900 22px sans-serif';ctx.textAlign='center';ctx.fillText('☣',0,16);
+  ctx.fillStyle='#253a35dd';ctx.beginPath();ctx.roundRect(-35,31,70,17,8);ctx.fill();ctx.fillStyle='white';ctx.font='900 9px sans-serif';ctx.fillText('폐의약품',0,43);
+  ctx.restore();
+};
 
 const stageName=document.querySelector('#stage-name');
 const roadmapItems=[...document.querySelectorAll('[data-stage-step]')];
@@ -33,6 +61,7 @@ Game.prototype.reset=function(){
   this.stage=1;
   this.wave=1;
   this.money=310;
+  this.blasts=[];
   this.stageTimer=5;
   this.stageIntro=0;
   this.sync();
@@ -65,8 +94,9 @@ Game.prototype.update=function(dt){
     this.dropTimer=7+Math.random()*2;
   }
   this.units.forEach(unit=>unit.update(dt,this));
+  this.blasts.forEach(blast=>blast.life-=dt);
   this.drops.forEach(drop=>{if(drop.source==='shelf')drop.value=25;});
-  this.enemies.forEach(enemy=>enemy.update(dt,this));
+  this.enemies.filter(enemy=>enemy.hp>0).forEach(enemy=>enemy.update(dt,this));
   this.drops.forEach(drop=>drop.update(dt));
   this.shots.forEach(shot=>{
     shot.x+=shot.speed*dt;
@@ -85,6 +115,7 @@ Game.prototype.update=function(dt){
   this.units=this.units.filter(unit=>unit.hp>0);
   this.drops=this.drops.filter(drop=>!drop.dead);
   this.shots=this.shots.filter(shot=>!shot.dead);
+  this.blasts=this.blasts.filter(blast=>blast.life>0);
   if(!this.spawnQueue.length&&!this.enemies.length){
     this.stageTimer-=dt;
     if(this.stageTimer<=0){
@@ -125,6 +156,13 @@ Game.prototype.win=function(){
 const originalGameDraw=Game.prototype.draw;
 Game.prototype.draw=function(){
   originalGameDraw.call(this);
+  this.blasts.forEach(blast=>{
+    const progress=1-blast.life/blast.maxLife,alpha=Math.max(0,blast.life/blast.maxLife),radius=34+progress*112;
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(blast.x,blast.y);
+    const glow=ctx.createRadialGradient(0,0,8,0,0,radius);glow.addColorStop(0,'#fff7b5');glow.addColorStop(.32,'#ffb52e');glow.addColorStop(.72,'#e74b2f88');glow.addColorStop(1,'#2e151000');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff1a8';ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,radius*.7,0,Math.PI*2);ctx.stroke();ctx.restore();
+  });
   if(this.stageIntro>0){
     const config=STAGES[this.stage-1];
     const alpha=Math.min(1,this.stageIntro*1.5);
