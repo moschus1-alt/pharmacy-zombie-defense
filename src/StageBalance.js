@@ -1,32 +1,39 @@
 const STAGE_TOTAL=5;
-const BUILDING_OWNER={id:'building-owner',name:'건물주',emoji:'🔑',hp:420,speed:11,damage:46,reward:60,color:'#7d2638'};
+const BUILDING_OWNER={id:'building-owner',name:'건물주',emoji:'🔑',hp:500,speed:12,damage:55,reward:50,color:'#7d2638'};
 ENEMY_TYPES.push(BUILDING_OWNER);
 
 const STAGES=[
-  {name:'오전 민원',count:4,interval:1.0,pool:[0,1],newcomers:[0,1],notice:'기본 진상 등장'},
-  {name:'가족 손님',count:5,interval:.95,pool:[0,1,2,3],newcomers:[2,3],notice:'신규 적 · 어린이와 노인'},
-  {name:'임대료 독촉',count:5,interval:.9,pool:[0,1,2,3],newcomers:[7],notice:'신규 적 · 건물주'},
-  {name:'전문직 압박',count:6,interval:.85,pool:[0,1,2,3,4,5,7],newcomers:[4,5],notice:'신규 적 · 의사와 영업사원'},
-  {name:'폐점 위기',count:7,interval:.8,pool:[0,1,2,3,4,5,6,7],newcomers:[6,7],notice:'최종 적 · 의사좀비와 건물주'}
+  {name:'오전 민원',count:6,interval:2,hp:.95,damage:.9,reward:.75,pool:[0,1],newcomers:[0,1],notice:'기본 진상 · 6명'},
+  {name:'가족 손님',count:8,interval:1.8,hp:1.05,damage:1,reward:.7,pool:[0,1,2,3],newcomers:[2,3],notice:'신규 적 · 어린이와 노인'},
+  {name:'임대료 독촉',count:10,interval:1.6,hp:1.18,damage:1.1,reward:.65,pool:[0,1,2,3],newcomers:[7],notice:'강적 · 건물주'},
+  {name:'전문직 압박',count:12,interval:1.45,hp:1.35,damage:1.2,reward:.6,pool:[0,1,2,3,7],newcomers:[4,5],notice:'신규 적 · 의사와 영업사원'},
+  {name:'폐점 위기',count:14,interval:1.3,hp:1.55,damage:1.3,reward:.55,pool:[0,1,2,3,4,5,7],newcomers:[6,7],notice:'최종 적 · 의사좀비와 건물주'}
 ];
 
-Object.assign(UNIT_TYPES.atc,{cost:45,hp:340,interval:6.2});
-Object.assign(UNIT_TYPES['atc-strike'],{cost:150,hp:290,damage:40,rate:1.25});
-Object.assign(UNIT_TYPES['pharm-part'],{cost:60,hp:230,damage:22,rate:1.05});
-Object.assign(UNIT_TYPES['pharm-new'],{cost:100,hp:280,damage:32,rate:.8});
-Object.assign(UNIT_TYPES['pharm-vet'],{cost:160,hp:350,damage:58,rate:.72});
-Object.assign(UNIT_TYPES['staff-part'],{cost:40,hp:480});
-Object.assign(UNIT_TYPES['staff-new'],{cost:80,hp:850});
-Object.assign(UNIT_TYPES['staff-vet'],{cost:120,hp:1400});
+unitSprites.partTime=new Image();
+unitSprites.beginner=new Image();
+unitSprites.partTime.src='assets/characters-v1/part-time-pharmacist-walk-v1.png';
+unitSprites.beginner.src='assets/characters-v1/beginner-pharmacist-walk-v1.png';
+
+Object.assign(UNIT_TYPES.atc,{cost:55,hp:330,interval:8});
+Object.assign(UNIT_TYPES['atc-strike'],{cost:185,hp:280,damage:30,rate:1.5});
+Object.assign(UNIT_TYPES['pharm-part'],{cost:70,hp:220,damage:16,rate:1.25,spriteKey:'partTime'});
+Object.assign(UNIT_TYPES['pharm-new'],{cost:125,hp:270,damage:24,rate:1,spriteKey:'beginner'});
+Object.assign(UNIT_TYPES['pharm-vet'],{cost:220,hp:340,damage:46,rate:.85});
+Object.assign(UNIT_TYPES['staff-part'],{cost:55,hp:500});
+Object.assign(UNIT_TYPES['staff-new'],{cost:105,hp:900});
+Object.assign(UNIT_TYPES['staff-vet'],{cost:160,hp:1500});
 
 const stageName=document.querySelector('#stage-name');
+const roadmapItems=[...document.querySelectorAll('[data-stage-step]')];
+const buildStageEnemy=(base,config)=>({...base,hp:Math.round(base.hp*config.hp),damage:Math.round(base.damage*config.damage),reward:Math.max(10,Math.round(base.reward*config.reward))});
 const originalReset=Game.prototype.reset;
 Game.prototype.reset=function(){
   originalReset.call(this);
   this.stage=1;
   this.wave=1;
-  this.money=300;
-  this.stageTimer=3.5;
+  this.money=310;
+  this.stageTimer=5;
   this.stageIntro=0;
   this.sync();
 };
@@ -35,10 +42,10 @@ Game.prototype.prepareWave=function(){
   const config=STAGES[this.stage-1];
   const randomCount=Math.max(0,config.count-config.newcomers.length);
   const lineup=Array.from({length:randomCount},()=>config.pool[Math.floor(Math.random()*config.pool.length)]).concat(config.newcomers);
-  this.spawnQueue=lineup.map((enemyIndex,index)=>({delay:index*config.interval,type:ENEMY_TYPES[enemyIndex]}));
+  this.spawnQueue=lineup.map((enemyIndex,index)=>({delay:2.6+index*config.interval,row:index<GRID.rows?index:Math.floor(Math.random()*GRID.rows),type:buildStageEnemy(ENEMY_TYPES[enemyIndex],config)}));
   this.spawnClock=0;
-  this.stageTimer=3.5;
-  this.stageIntro=2.1;
+  this.stageTimer=5;
+  this.stageIntro=2.8;
   ui.message.textContent=`스테이지 ${this.stage} · ${config.name} — ${config.notice}`;
 };
 
@@ -48,16 +55,17 @@ Game.prototype.update=function(dt){
   this.spawnClock+=dt;
   while(this.spawnQueue.length&&this.spawnClock>=this.spawnQueue[0].delay){
     const spawn=this.spawnQueue.shift();
-    this.enemies.push(new Enemy(spawn.type,Math.floor(Math.random()*GRID.rows),this.stage-1));
+    this.enemies.push(new Enemy(spawn.type,spawn.row,0));
   }
   this.dropTimer-=dt;
   if(this.dropTimer<=0){
     const drop=new Drop(GRID.x+60+Math.random()*(GRID.cw*GRID.cols-120),0);
-    drop.value=30;
+    drop.value=20;
     this.drops.push(drop);
-    this.dropTimer=4.5+Math.random()*2;
+    this.dropTimer=7+Math.random()*2;
   }
   this.units.forEach(unit=>unit.update(dt,this));
+  this.drops.forEach(drop=>{if(drop.source==='shelf')drop.value=25;});
   this.enemies.forEach(enemy=>enemy.update(dt,this));
   this.drops.forEach(drop=>drop.update(dt));
   this.shots.forEach(shot=>{
@@ -82,7 +90,7 @@ Game.prototype.update=function(dt){
     if(this.stageTimer<=0){
       if(this.stage>=STAGE_TOTAL)this.win();
       else{
-        const clearBonus=35+this.stage*10;
+        const clearBonus=15+this.stage*5;
         this.money+=clearBonus;
         this.stage++;
         this.wave=this.stage;
@@ -90,7 +98,7 @@ Game.prototype.update=function(dt){
         audio.sfx('wave');
       }
     }
-  }else this.stageTimer=3.5;
+  }else this.stageTimer=5;
   this.sync();
 };
 
@@ -99,6 +107,11 @@ Game.prototype.sync=function(){
   ui.money.textContent=Math.floor(this.money||0);
   ui.wave.textContent=this.stage||1;
   if(stageName)stageName.textContent=config.name;
+  roadmapItems.forEach((item,index)=>{
+    const number=index+1;
+    item.classList.toggle('active',number===(this.stage||1));
+    item.classList.toggle('cleared',number<(this.stage||1));
+  });
   if(!this.running&&!this.over){ui.next.textContent=`스테이지 ${this.stage||1} 준비`;return;}
   if(this.spawnQueue?.length)ui.next.textContent=`${config.name} · 남은 적 ${this.spawnQueue.length+this.enemies.length}명`;
   else if(this.enemies?.length)ui.next.textContent=`${config.name} · 전투 중 ${this.enemies.length}명`;
