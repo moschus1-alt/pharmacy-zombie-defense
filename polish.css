@@ -5,6 +5,7 @@ body{background:radial-gradient(circle at 18% 0,#164d4a 0,#08252c 37%,#03151c 10
 .topbar h1{letter-spacing:-.055em;text-shadow:0 4px 24px #4de0bd24}
 .hud>span,.icon-btn{border-color:#3c6975;background:linear-gradient(180deg,#102f3b,#0a202a);box-shadow:inset 0 1px #ffffff0c,0 8px 18px #0010164d}
 .money-pill{color:var(--gold)!important;background:linear-gradient(180deg,#294134,#142d2e)!important;border-color:#7c8150!important}
+.stage-name-pill{color:#8ff4da!important;border-color:#4b8d82!important;background:linear-gradient(180deg,#164b46,#102e35)!important;font-weight:900}
 .rail-group{background:linear-gradient(155deg,#0f303b,#09222c);border-color:#315d68;box-shadow:inset 0 1px #ffffff0b,0 12px 28px #00101838}
 .rail-group h2{color:#b6f5ea;letter-spacing:.03em}
 .unit-card{position:relative;overflow:hidden;border-color:#3b6570;background:linear-gradient(140deg,#173b46,#102d38);box-shadow:inset 0 1px #ffffff10,0 5px 12px #00101632;transition:transform .15s ease,border-color .15s ease,filter .15s ease}
